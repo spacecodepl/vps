@@ -1,0 +1,163 @@
+Przed rozpoczęciem całego procesu konfiguracji upewnij się, że jesteś w wierszu poleceń i wpisz następujące polecenia:
+
+
+
+1) Zainstalujmy NGINX i sprawdźmy, czy działa:
+ 
+sudo apt update
+(aktualizacja linuxa)
+
+systemctl status nginx
+(sprawdzenie statusu nginx -> aby wyjść ze statutu wciśnij "q")
+
+Teraz wejdź na ip vps'a / dedyka (w przeglądarce) i sprawdź czy nginx działa.
+
+2) Zainstaluj PHP 7.4 i wszystkie ważne wtyczki i sprawdź stan serwea:
+
+sudo apt install software-properties-common -y
+sudo add-apt-repository ppa:ondrej/php
+sudo apt install php7.4-fpm php7.4-common php7.4-dom php7.4-intl php7.4-mysql php7.4-xml php7.4-xmlrpc php7.4-curl php7.4-gd php7.4-imagick php7.4-cli php7.4-dev php7.4-imap php7.4-mbstring php7.4-soap php7.4-zip php7.4-bcmath -y
+
+systemctl status php7.4-fpm
+(sprawdzenie statusu php -> aby wyjść ze statutu wciśnij "q")
+
+3) Zainstalujmy MariaDB:
+
+sudo apt-key adv --fetch-keys 'https://mariadb.org/mariadb_release_signing_key.asc'
+(Odwiedź witrynę MariaDB, aby uzyskać klucz gpg)
+
+sudo add-apt-repository 'deb [arch=amd64,arm64,ppc64el] http://mirror.nodesdirect.com/mariadb/repo/10.4/ubuntu bionic main'
+(Po zaimportowaniu klucza dodaj adres URL repozytorium apt)
+
+
+Następnie zainstaluj serwer MariaDB na systemie ubuntu, wykonując następujące polecenia:
+
+apt install mariadb-server -y
+(instalacja serwera mariadb)
+
+systemctl status mariadb
+(sprawdzenie statusu mariadb -> aby wyjść ze statutu wciśnij "q")
+
+mysql_secure_installation
+(instalacja i pierwsza konfguracja)
+
+Enter current password for root (enter for none): *wciskamy enter*
+
+Set root password? [Y/n] *Wciskamy "Y" następnie enter*
+
+New password: *pisujemy hasło jakie chcemy*
+
+Re-enter new password: *pisujemy ponownie hasło jakie chcemy*
+
+Remove anonymous users? [Y/n] *Wciskamy "N" następnie enter*
+
+Disallow root login remotely? [Y/n] *Wciskamy "N" następnie enter*
+
+Remove test database and access to it? [Y/n] *Wciskamy "N" następnie enter*
+
+Reload privilege tables now? [Y/n] *Wciskamy "Y" następnie enter*
+
+4) Instalujemy teraz PHPMyAdmin:
+
+wget -c https://files.phpmyadmin.net/phpMyAdmin/5.0.2/phpMyAdmin-5.0.2-english.tar.gz
+(pobieramy werjse phpmyadmina jaką chcemy)
+
+tar xzvf phpMyAdmin-5.0.2-english.tar.gz
+(rozpakowujemy paczkę (pamiętaj - jak pobrałeś inną wersję to zmień nazwę pliku)
+
+sudo mv phpMyAdmin-5.0.2-english /usr/share/phpmyadmin
+(przenosimy pliki)
+
+ln -s /usr/share/phpmyadmin /var/www/html
+(tworzymy skrót w naszym katalogu html)
+
+mkdir /usr/share/phpmyadmin/tmp
+(stwórz folder tmp)
+
+chmod 755 -R /usr/share/phpmyadmin/tmp
+(dodaj permisje)
+
+5) Teraz trzeba skonfigurować NGINX:
+
+nano /etc/nginx/sites-available/default
+(otwieramy plik default)
+
+dopisujemy index.php przed innymi rozszerzeniami:
+
+index index.php index.html index.htm;
+
+
+Dodajemy interpreter php:
+
+location ~ \.php$ {
+  try_files $fastcgi_script_name =404;
+  include fastcgi_params;
+  fastcgi_pass  unix:/run/php/php7.4-fpm.sock;
+  fastcgi_index index.php;
+  fastcgi_param DOCUMENT_ROOT  $realpath_root;
+  fastcgi_param SCRIPT_FILENAME   $realpath_root$fastcgi_script_name; 
+}
+
+
+nginx -t
+(testujemy config nginx)
+
+systemctl restart nginx
+(restartujemy nginxg)
+
+systemctl status nginx
+(sprawdzenie statusu nginx -> aby wyjść ze statutu wciśnij "q")
+
+http://IP_SERVER/phpmyadmin
+(wpisz to w przeglądarce podmieniająć ip serwera na ip vps/dedyka i sprawdź czy wszystko działa)
+
+6) dodaj użytkownika mysql:
+
+mysql
+(wejście do wiersza poleceń mysql)
+
+CREATE USER 'nick'@'%' IDENTIFIED BY 'haslo';
+(użytkowik z dostępem poza localhost)
+
+CREATE USER 'nick'@'localhost' IDENTIFIED BY 'haslo';
+(użytkownik z dostępem tylko localhost)
+
+GRANT ALL PRIVILEGES ON * . * TO 'nick'@'%';
+(przyznanie wszystkich praw do użytkownika (zamień @ na localhost jeśli zrobiłeś użytkownika localhost))
+
+(aby wyjść wciśnij ctrl + c)
+
+7) instalacja ioncube:
+
+wget https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz
+(pobranie pliku ioncube)
+
+tar xzvf ioncube_loaders_lin_x86-64.tar.gz
+(rozpakowanie pliku)
+
+php -i | grep extension_dir
+(wyciągnięcie listy plików)
+
+cp ioncube/ioncube_loader_lin_7.4.so /usr/lib/php/20190902/
+(skopiuj plik do danej lokalizajci)
+
+nano /etc/php/7.2/fpm/php.ini 
+(otwórz plik)
+
+Wklej na samym końcu pliku:
+zend_extension = /usr/lib/php/20170718/ioncube_loader_lin_7.4.so
+
+
+Zresetuj php i nginx:
+
+systemctl restart php7.4-fpm
+systemctl restart nginx
+
+:)
+
+
+
+
+
+
+
